@@ -1,16 +1,16 @@
 'use client';
 
 /**
- * MOON Page — 主编排。
+ * MOON Page — 主编排（完全重构为 Tailwind CSS，支持文件绝对路径 URL 同步及侧栏优化）。
  *
  * 三栏布局：左（Sidebar） · 中（Editor / Welcome） · 右（RightRail）
  * 顶栏：面包屑 · 搜索 · 主题切换 · 三点菜单
  *
- * 旧逻辑（File System Access / 自动保存 / 双链跳转 / 全文索引）全部保留。
- * 新布局用 design-system 的 Sidebar / SidebarItem / Breadcrumb / SearchInput / ThemeSwitcher 替换。
+ * 左侧栏底部的两个按钮已居中，仅显示 icon。左侧栏占满高度，顶栏移到右侧内容区域。
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { usePathname } from 'next/navigation';
 import { useDirectory } from '@/hooks/useDirectory';
 import { useFileTree } from '@/hooks/useFileTree';
 import { useAutoSave } from '@/hooks/useAutoSave';
@@ -28,62 +28,111 @@ import { PromptDialog } from '@/components/file-tree/ContextMenu';
 import { SearchPanel } from '@/components/search/SearchPanel';
 
 import { Sidebar } from '@/design-system/components/composed/Sidebar';
-import { SidebarItem } from '@/design-system/components/composed/SidebarItem';
 import { Breadcrumb } from '@/design-system/components/composed/Breadcrumb';
-import { SearchInput } from '@/design-system/components/composed/SearchInput';
 import { ThemeSwitcher } from '@/design-system/components/composed/ThemeSwitcher';
 import { WorkspaceSwitcher } from '@/design-system/components/composed/WorkspaceSwitcher';
-import { Button } from '@/design-system/components/primitives/Button';
 import { IconButton } from '@/design-system/components/primitives/IconButton';
 import { Tooltip } from '@/design-system/components/primitives/Tooltip';
 import { Menu, type MenuItem } from '@/design-system/components/primitives/Menu';
 
-import { MoreHorizontal, FilePlus, FolderPlus, FileText, RefreshCw, Info } from 'lucide-react';
+import { MoreHorizontal, FilePlus, FolderPlus, FileText, RefreshCw, Info, Search } from 'lucide-react';
 
 import { joinDocument } from '@/lib/markdown-serde';
+import { composeDocument } from '@/lib/frontmatter';
 import { getFileHandleByPath, scanMdFilesRecursively } from '@/lib/fs-access';
 import { pushRecentFile, getRecentFiles } from '@/lib/recent-files';
 import type { FileEntry, Frontmatter } from '@/types/document';
-
-import '@/components/file-tree/file-tree.css';
-import '@/components/editor/editor.css';
-import '@/app/page.css';
 
 export default function Page() {
   const { dirHandle, topEntries, status, errorMsg, pickDirectory, reauthorize } = useDirectory();
   const [currentFile, setCurrentFile] = useState<{ handle: FileSystemFileHandle; path: string } | null>(null);
   const [frontmatter, setFrontmatter] = useState<Frontmatter>({});
   const [bodyMd, setBodyMd] = useState('');
+  const [originalFrontmatterText, setOriginalFrontmatterText] = useState('');
+  const [frontmatterDirty, setFrontmatterDirty] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [creatingFile, setCreatingFile] = useState(false);
   const [creatingDir, setCreatingDir] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
   const [allFileTexts, setAllFileTexts] = useState<{ path: string; text: string }[]>([]);
   const [recentPaths, setRecentPaths] = useState<string[]>([]);
+  const [workspaceRoot, setWorkspaceRoot] = useState<string | null>(null);
 
   const leftSidebar = useSidebarState('left', false);
   const rightSidebar = useSidebarState('right', false);
   const search = useSearchIndex(dirHandle);
+  const pathname = usePathname();
 
-  // ─── 文件树 ─────────────────────────────────────────────
+  // 获取工作区在计算机上的绝对路径
+  useEffect(() => {
+    fetch('/api/workspace')
+      .then((res) => res.json())
+      .then((data) => setWorkspaceRoot(data.workspaceRoot))
+      .catch((err) => console.error('获取工作区绝对路径失败:', err));
+  }, []);
+
+  // ─── 文件选择 ─────────────────────────────────────────────
   const handlePickFile = useCallback((handle: FileSystemFileHandle, path: string) => {
     setCurrentFile({ handle, path });
     setDirty(false);
+    setFrontmatterDirty(false);
+    setOriginalFrontmatterText('');
     pushRecentFile(path);
     setRecentPaths(getRecentFiles());
-  }, []);
+
+    // 同步更新 URL 为用户计算机的绝对路径
+    if (workspaceRoot && dirHandle) {
+      const absolutePath = `${workspaceRoot}/${dirHandle.name}/${path}`;
+      window.history.pushState(null, '', `/page${absolutePath}`);
+    } else {
+      window.history.pushState(null, '', `/page/${path}`);
+    }
+  }, [workspaceRoot, dirHandle]);
 
   const fileTree = useFileTree({
     rootHandle: dirHandle,
     onTreeChange: () => {},
-    onOpenFile: (handle, path) => {
-      setCurrentFile({ handle, path });
-      setDirty(false);
-      pushRecentFile(path);
-      setRecentPaths(getRecentFiles());
-    },
+    onOpenFile: handlePickFile,
   });
+
+  // ─── 监听 URL 变化并自动打开对应文件 ─────────────────────────────
+  useEffect(() => {
+    if (status !== 'ready' || !dirHandle || !workspaceRoot) return;
+    if (!pathname || !pathname.startsWith('/page/')) {
+      if (currentFile !== null) {
+        setCurrentFile(null);
+      }
+      return;
+    }
+    
+    // 从 URL 中提取用户计算机上的绝对路径
+    const targetAbsolutePath = decodeURIComponent(pathname.substring(5)); // 去除 "/page" 前缀
+    
+    // 当前工作区的绝对路径前缀
+    const dirAbsolutePrefix = `${workspaceRoot}/${dirHandle.name}`;
+    
+    // 检查绝对路径是否属于当前工作区
+    if (!targetAbsolutePath.startsWith(dirAbsolutePrefix + '/')) {
+      return;
+    }
+    
+    // 提取相对路径并加载文件
+    const targetRelativePath = targetAbsolutePath.substring(dirAbsolutePrefix.length + 1);
+    if (currentFile?.path === targetRelativePath) return;
+
+    void (async () => {
+      try {
+        const handle = await getFileHandleByPath(dirHandle, targetRelativePath);
+        setCurrentFile({ handle, path: targetRelativePath });
+        setDirty(false);
+        setFrontmatterDirty(false);
+        setOriginalFrontmatterText('');
+      } catch (err) {
+        console.error('根据绝对路径 URL 自动打开文件失败:', err);
+        window.history.pushState(null, '', '/');
+      }
+    })();
+  }, [dirHandle, status, pathname, currentFile?.path, workspaceRoot]);
 
   // ─── 初始化最近文件 ─────────────────────────────────────
   useEffect(() => {
@@ -93,12 +142,16 @@ export default function Page() {
   // ─── 自动保存 ───────────────────────────────────────────
   const saveFile = useCallback(async () => {
     if (!currentFile) return;
-    const text = joinDocument(frontmatter, bodyMd);
+    // 关键：仅在 frontmatter 被用户编辑（frontmatterDirty）时重新序列化 YAML，
+    // 否则保留原始 frontmatter 文本（引号、顺序、注释等不被破坏）。
+    const text = frontmatterDirty
+      ? joinDocument(frontmatter, bodyMd)
+      : composeDocument(originalFrontmatterText, bodyMd);
     const writable = await currentFile.handle.createWritable();
     await writable.write(text);
     await writable.close();
     setDirty(false);
-  }, [currentFile, frontmatter, bodyMd]);
+  }, [currentFile, frontmatter, bodyMd, frontmatterDirty, originalFrontmatterText]);
 
   const autoSave = useAutoSave({ isDirty: dirty, save: saveFile });
 
@@ -144,23 +197,32 @@ export default function Page() {
       }
       try {
         const handle = await getFileHandleByPath(dirHandle, resolved);
-        setCurrentFile({ handle, path: resolved });
-        setDirty(false);
-        pushRecentFile(resolved);
-        setRecentPaths(getRecentFiles());
+        handlePickFile(handle, resolved);
       } catch (err) {
         console.error('跳转失败:', err);
       }
     };
     window.addEventListener('double-link-click', handler);
     return () => window.removeEventListener('double-link-click', handler);
-  }, [currentFile, dirHandle, allFileTexts]);
+  }, [currentFile, dirHandle, allFileTexts, handlePickFile]);
 
-  // ─── 派生数据 ───────────────────────────────────────────
+  // ─── 面包屑跳转 index.md ───────────────────────────────────────────
   const breadcrumbSegments = useBreadcrumb({
     relativePath: currentFile?.path ?? null,
-    onNavigateTo: () => {
-      // TODO: 跳到对应层级（暂时不实现，先保留接口）
+    onNavigateTo: (idx, label) => {
+      if (!currentFile || !dirHandle) return;
+      const parts = currentFile.path.split('/').filter(Boolean);
+      // 取点击层级之前的文件夹路径
+      const targetFolderPath = parts.slice(0, idx + 1).join('/');
+      const targetIndexPath = `${targetFolderPath}/index.md`;
+      void (async () => {
+        try {
+          const handle = await getFileHandleByPath(dirHandle, targetIndexPath);
+          handlePickFile(handle, targetIndexPath);
+        } catch (err) {
+          console.warn('面包屑目录中不存在 index.md:', err);
+        }
+      })();
     },
   });
 
@@ -232,59 +294,8 @@ export default function Page() {
   const workspaceName = dirHandle?.name ?? null;
 
   return (
-    <div className="moon-page">
-      {/* ─── 顶栏 ────────────────────────────────────────── */}
-      <header className="moon-topbar">
-        <div className="moon-topbar-left">
-          {currentFile ? (
-            <Breadcrumb
-              segments={breadcrumbSegments}
-              root={
-                <Tooltip label={workspaceName ?? '工作区'} side="bottom">
-                  <FileText size={14} />
-                </Tooltip>
-              }
-            />
-          ) : (
-            <span className="moon-topbar-status">未选择文件</span>
-          )}
-        </div>
-        <div className="moon-topbar-right">
-          <SearchInput
-            value={searchQuery}
-            onChange={setSearchQuery}
-            onSearch={(q) => {
-              setSearchQuery(q);
-              setSearchOpen(true);
-            }}
-            placeholder="搜索文档…"
-          />
-          {search.building && (
-            <span className="moon-topbar-status">
-              索引 {search.progress.done}/{search.progress.total}
-            </span>
-          )}
-          {saveStatusLabel && (
-            <span className="moon-topbar-status" data-state={autoSave.status}>
-              {saveStatusLabel}
-            </span>
-          )}
-          <ThemeSwitcher />
-          <Menu
-            trigger={
-              <IconButton
-                icon={<MoreHorizontal size={16} />}
-                size="sm"
-                aria-label="更多"
-              />
-            }
-            items={moreMenuItems}
-            align="end"
-          />
-        </div>
-      </header>
-
-      {/* ─── 左栏 ────────────────────────────────────────── */}
+    <div className="flex h-screen w-screen overflow-hidden bg-appBg text-fg font-sans">
+      {/* ─── 左栏 (占据全高) ────────────────────────────────── */}
       <Sidebar side="left" collapsed={leftSidebar.collapsed} onToggleCollapsed={leftSidebar.toggle}>
         <WorkspaceSwitcher
           name={workspaceName}
@@ -292,7 +303,7 @@ export default function Page() {
           onPick={pickDirectory}
           onReauthorize={reauthorize}
         />
-        <div className="moon-sidebar-file-list">
+        <div className="flex-1 min-h-0 overflow-y-auto">
           <FileTree
             topEntries={topEntries}
             rootHandle={dirHandle}
@@ -308,95 +319,168 @@ export default function Page() {
           />
         </div>
         {dirHandle && (
-          <div className="moon-sidebar-new-row">
+          <div className="flex items-center justify-center gap-4 py-3 px-4 border-t border-borderSubtle bg-sidebarBg flex-shrink-0">
             <Tooltip label="新建文件" side="top">
-              <Button
-                size="sm"
-                iconLeft={<FilePlus size={14} />}
+              <IconButton
+                icon={<FilePlus size={16} />}
+                size="md"
                 onClick={() => setCreatingFile(true)}
-              >
-                文件
-              </Button>
+                aria-label="新建文件"
+              />
             </Tooltip>
             <Tooltip label="新建文件夹" side="top">
-              <Button
-                size="sm"
-                iconLeft={<FolderPlus size={14} />}
+              <IconButton
+                icon={<FolderPlus size={16} />}
+                size="md"
                 onClick={() => setCreatingDir(true)}
-              >
-                文件夹
-              </Button>
+                aria-label="新建文件夹"
+              />
             </Tooltip>
           </div>
         )}
       </Sidebar>
 
-      {/* ─── 主区 ────────────────────────────────────────── */}
-      <main className="moon-main">
-        {currentFile ? (
-          <div className="moon-editor-wrap">
-            <Editor
-              fileHandle={currentFile.handle}
-              filePath={currentFile.path}
-              onDirtyChange={setDirty}
-              onFrontmatterChange={(fm) => setFrontmatter(fm as Frontmatter)}
-              onBodyChange={setBodyMd}
+      {/* ─── 右侧内容区 (包含顶栏、主区、右栏) ─────────────────────── */}
+      <div className="flex-1 min-w-0 flex flex-col h-full overflow-hidden">
+        {/* ─── 顶栏 (在左栏右侧顶部) ────────────────────────────────── */}
+        <header className="h-11 border-b border-borderSubtle px-4 flex items-center justify-between gap-3 bg-appBg flex-shrink-0 z-10 select-none">
+          <div className="flex items-center gap-3 min-w-0 flex-1">
+            {currentFile ? (
+              <Breadcrumb
+                segments={breadcrumbSegments}
+                root={
+                  <Tooltip label={workspaceName ?? '工作区'} side="bottom">
+                    <FileText size={14} className="text-fgMuted" />
+                  </Tooltip>
+                }
+              />
+            ) : (
+              <span className="text-[11px] font-sans text-fgMuted">未选择文件</span>
+            )}
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <Tooltip label="搜索 (⌘K)" side="bottom">
+              <IconButton
+                icon={<Search size={15} />}
+                size="sm"
+                onClick={() => setSearchOpen(true)}
+                aria-label="搜索"
+              />
+            </Tooltip>
+            {search.building && (
+              <span className="text-[11px] font-sans text-fgMuted">
+                索引 {search.progress.done}/{search.progress.total}
+              </span>
+            )}
+            {saveStatusLabel && (
+              <span 
+                className={`text-[11px] font-sans font-medium px-1.5 py-0.5 rounded ${
+                  autoSave.status === 'saving'
+                    ? 'text-warning bg-warning/10'
+                    : autoSave.status === 'error'
+                    ? 'text-danger bg-danger/10'
+                    : 'text-fgMuted'
+                }`}
+              >
+                {saveStatusLabel}
+              </span>
+            )}
+            <ThemeSwitcher />
+            <Menu
+              trigger={
+                <IconButton
+                  icon={<MoreHorizontal size={16} />}
+                  size="sm"
+                  aria-label="更多"
+                />
+              }
+              items={moreMenuItems}
+              align="end"
             />
           </div>
-        ) : (
-          <Welcome
-            recentPaths={recentPaths}
-            hasWorkspace={Boolean(dirHandle)}
-            onPickRecent={(path) => {
-              if (!dirHandle) return;
-              void (async () => {
-                try {
-                  const handle = await getFileHandleByPath(dirHandle, path);
-                  handlePickFile(handle, path);
-                } catch (err) {
-                  console.error('打开最近文件失败:', err);
-                }
-              })();
-            }}
-          />
-        )}
-      </main>
+        </header>
 
-      {/* ─── 右栏 ────────────────────────────────────────── */}
-      <Sidebar side="right" collapsed={rightSidebar.collapsed} onToggleCollapsed={rightSidebar.toggle}>
-        {currentFile && (
-          <RightRail
-            fileHandle={currentFile.handle}
-            currentPath={currentFile.path}
-            allFileTexts={allFileTexts}
-            onFrontmatterChange={(fm) => setFrontmatter(fm)}
-            headings={headings}
-            onJumpToHeading={(h) => {
-              // TODO: 让 Tiptap 滚到对应 offset
-              console.log('jump to heading:', h.text);
-            }}
-            related={related}
-            onOpenRelated={(path) => {
-              if (!dirHandle) return;
-              void (async () => {
-                try {
-                  const handle = await getFileHandleByPath(dirHandle, path);
-                  handlePickFile(handle, path);
-                } catch (err) {
-                  console.error('打开关联文档失败:', err);
-                }
-              })();
-            }}
-          />
-        )}
-      </Sidebar>
+        {/* ─── 下方编辑/预览区域 (主区与右栏并排) ───────────────────────── */}
+        <div className="flex-1 min-h-0 flex overflow-hidden relative">
+          {/* ─── 主区 (编辑器) ────────────────────────────────── */}
+          <main className="flex-1 min-w-0 flex flex-col bg-appBg overflow-hidden">
+            {currentFile ? (
+              <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+                <Editor
+                  fileHandle={currentFile.handle}
+                  filePath={currentFile.path}
+                  onDirtyChange={setDirty}
+                  onFrontmatterChange={(fm, fmText) => {
+                    setFrontmatter(fm as Frontmatter);
+                    // 首次加载时把原始 frontmatter 文本（保留引号/顺序/注释）记录下来。
+                    // 后续如果用户改动了任何属性，frontmatterDirty 会被 PageProperties 标 true。
+                    if (!frontmatterDirty) setOriginalFrontmatterText(fmText);
+                  }}
+                  onBodyChange={setBodyMd}
+                />
+              </div>
+            ) : (
+              <div className="flex-1 min-h-0 overflow-y-auto">
+                <Welcome
+                  recentPaths={recentPaths}
+                  hasWorkspace={Boolean(dirHandle)}
+                  onPickRecent={(path) => {
+                    if (!dirHandle) return;
+                    void (async () => {
+                      try {
+                        const handle = await getFileHandleByPath(dirHandle, path);
+                        handlePickFile(handle, path);
+                      } catch (err) {
+                        console.error('打开最近文件失败:', err);
+                      }
+                    })();
+                  }}
+                />
+              </div>
+            )}
+          </main>
+
+          {/* ─── 右栏 (辅助面板) ────────────────────────────────── */}
+          <Sidebar side="right" collapsed={rightSidebar.collapsed} onToggleCollapsed={rightSidebar.toggle}>
+            {currentFile && (
+              <RightRail
+                fileHandle={currentFile.handle}
+                currentPath={currentFile.path}
+                allFileTexts={allFileTexts}
+                onFrontmatterChange={(fm) => {
+                  setFrontmatter(fm);
+                  // 用户在右侧属性面板修改了字段 → 标记 frontmatter 为 dirty，
+                  // 下次保存时用 joinYAML 重新序列化（接受新的引号/顺序）。
+                  setFrontmatterDirty(true);
+                }}
+                headings={headings}
+                onJumpToHeading={(h) => {
+                  console.log('jump to heading:', h.text);
+                }}
+                related={related}
+                onOpenRelated={(path) => {
+                  if (!dirHandle) return;
+                  void (async () => {
+                    try {
+                      const handle = await getFileHandleByPath(dirHandle, path);
+                      handlePickFile(handle, path);
+                    } catch (err) {
+                      console.error('打开关联文档失败:', err);
+                    }
+                  })();
+                }}
+              />
+            )}
+          </Sidebar>
+        </div>
+      </div>
 
       {/* ─── Modals ──────────────────────────────────────── */}
       {creatingFile && dirHandle && (
         <PromptDialog
           title="新建文件 (在根目录)"
-          onConfirm={async () => {
-            await fileTree.createNewFile(dirHandle, dirHandle.name);
+          onConfirm={async (v) => {
+            await fileTree.createNewFile(dirHandle, v);
             setCreatingFile(false);
           }}
           onCancel={() => setCreatingFile(false)}
@@ -405,7 +489,7 @@ export default function Page() {
       {creatingDir && dirHandle && (
         <PromptDialog
           title="新建文件夹 (在根目录)"
-          onConfirm={async () => {
+          onConfirm={async (v) => {
             await fileTree.createNewDir(dirHandle);
             setCreatingDir(false);
           }}
@@ -417,7 +501,6 @@ export default function Page() {
           open={searchOpen}
           onClose={() => setSearchOpen(false)}
           search={(q) => {
-            // 让 SearchPanel 内部用 useSearchIndex 的 search
             return search.search(q);
           }}
           onPick={async (r) => {
@@ -434,7 +517,7 @@ export default function Page() {
       )}
 
       {errorMsg && (
-        <div className="moon-topbar-status" data-state="error" style={{ position: 'fixed', bottom: 12, right: 12 }}>
+        <div className="fixed bottom-3 right-3 text-xs font-sans bg-danger/10 text-danger border border-danger/20 rounded px-3 py-1.5 shadow z-50 select-none">
           {errorMsg}
         </div>
       )}
