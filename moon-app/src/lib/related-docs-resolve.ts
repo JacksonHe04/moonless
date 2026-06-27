@@ -3,13 +3,13 @@
  *
  * 输入：所有 markdown 文件的 { path, text } 列表 + 当前文件路径。
  * 输出：
- * - outgoing: 当前文件里 [[link]] 链出去的目标（按出现顺序）
- * - incoming: 别的文件链向当前文件（按文件名排序）
+ * - outgoing: 当前文件里 [[link]] 或 [label](path) 链出去的目标（按出现顺序）
+ * - incoming: 别的文件链向当前文件（按文件名排序，即反向链接）
  *
  * 双链识别：
  * - [[path]]           → 精确路径
- * - [[path|alias]]     → 精确路径 + 显示别名（我们只用路径）
- * - 不区分大小写、忽略前后空格
+ * - [[path|alias]]     → 精确路径 + 显示别名
+ * - [label](./path.md) → 标准 Markdown 相对路径链接
  */
 
 import { resolveMdPath } from './double-link';
@@ -35,7 +35,6 @@ interface Input {
   allFiles: { path: string; text: string }[];
 }
 
-// 匹配 [[...]]，捕获内部内容（不含方括号）
 const WIKILINK_RE = /\[\[([^\]\n]+?)\]\]/g;
 
 // 从路径拿 label（basename 去掉 .md）
@@ -44,21 +43,38 @@ function labelOf(path: string): string {
   return base.replace(/\.md$/i, '');
 }
 
-// 从单篇 markdown 文本里抽出 [[...]] 引用路径列表
-function extractWikilinks(text: string): string[] {
+// 抽取所有链接（包括 Wikilink 与标准 Markdown 链接）
+function extractAllLinks(text: string): { label: string; href: string; isWiki: boolean }[] {
   if (!text) return [];
-  // 去掉 fenced code block
+  // 清理代码块，防止误识别
   const cleaned = text.replace(/```[\s\S]*?```/g, '').replace(/`[^`]*`/g, '');
-  const out: string[] = [];
+  const out: { label: string; href: string; isWiki: boolean }[] = [];
+
+  // 1. 匹配 Wikilinks [[path]] 或 [[path|alias]]
   let m: RegExpExecArray | null;
   WIKILINK_RE.lastIndex = 0;
   while ((m = WIKILINK_RE.exec(cleaned)) !== null) {
     const inner = (m[1] ?? '').trim();
     if (!inner) continue;
-    // 可能是 [[path|alias]] 或 [[alias]]（无后缀，纯别名形式）
-    const target = inner.split('|')[0]?.trim() ?? '';
-    if (target) out.push(target);
+    const parts = inner.split('|');
+    const target = parts[0]?.trim() ?? '';
+    const label = parts[1]?.trim() ?? target;
+    if (target) {
+      out.push({ label, href: target, isWiki: true });
+    }
   }
+
+  // 2. 匹配标准 Markdown 相对链接 [label](./path.md)
+  const mdLinkRe = /\[([^\]]*?)\]\(([^)\n]+?)\)/g;
+  while ((m = mdLinkRe.exec(cleaned)) !== null) {
+    const label = (m[1] ?? '').trim();
+    const href = (m[2] ?? '').trim();
+    // 排除外部链接 (如 http://, https://, mailto:, etc.)
+    if (href && !/^[a-z]+:\/\//i.test(href) && !href.startsWith('mailto:') && !href.startsWith('#')) {
+      out.push({ label, href, isWiki: false });
+    }
+  }
+
   return out;
 }
 
@@ -69,44 +85,63 @@ export function resolveRelated({ currentPath, allFiles }: Input): ResolvedRelate
   const current = allFiles.find((f) => f.path === currentPath);
   const outgoing: RelatedDoc[] = [];
   if (current) {
-    const links = extractWikilinks(current.text);
+    const links = extractAllLinks(current.text);
     const seen = new Set<string>();
     for (const link of links) {
-      // link 可能是 [[alias]] 或 [[path]]
       let resolved: string | null = null;
-      if (link.includes('/') || link.endsWith('.md')) {
-        resolved = resolveMdPath(current.path, link, allPaths);
+      if (link.isWiki) {
+        if (link.href.includes('/') || link.href.endsWith('.md')) {
+          resolved = resolveMdPath(current.path, link.href, allPaths);
+        } else {
+          // 尝试以 basename 进行匹配
+          const lower = link.href.toLowerCase();
+          const candidate = Array.from(allPaths).find((p) => labelOf(p).toLowerCase() === lower);
+          resolved = candidate ?? null;
+        }
       } else {
-        // 别名形式：尝试 basename 匹配（大小写不敏感）
-        const lower = link.toLowerCase();
-        const candidate = Array.from(allPaths).find((p) => labelOf(p).toLowerCase() === lower);
-        resolved = candidate ?? null;
+        resolved = resolveMdPath(current.path, link.href, allPaths);
       }
-      if (resolved && !seen.has(resolved)) {
+
+      if (resolved && resolved !== currentPath && !seen.has(resolved)) {
         seen.add(resolved);
-        outgoing.push({ path: resolved, label: labelOf(resolved), refType: 'outgoing' });
+        outgoing.push({
+          path: resolved,
+          label: link.label || labelOf(resolved),
+          refType: 'outgoing',
+        });
       }
     }
   }
 
-  // incoming：所有其他文件里 [[... currentPath ...]] 或 [[label]]
+  // incoming：所有其他文件里链向当前文件的链接 (反向链接)
   const currentLabel = labelOf(currentPath);
   const incoming: RelatedDoc[] = [];
   for (const file of allFiles) {
     if (file.path === currentPath) continue;
-    const links = extractWikilinks(file.text);
+    const links = extractAllLinks(file.text);
     const matched = links.some((link) => {
-      if (link === currentPath) return true;
-      if (link.toLowerCase() === currentLabel.toLowerCase()) return true;
-      if (link.endsWith('.md') && resolveMdPath(file.path, link, allPaths) === currentPath) {
-        return true;
+      if (link.isWiki) {
+        if (link.href === currentPath) return true;
+        if (link.href.toLowerCase() === currentLabel.toLowerCase()) return true;
+        if (link.href.endsWith('.md') && resolveMdPath(file.path, link.href, allPaths) === currentPath) {
+          return true;
+        }
+      } else {
+        if (resolveMdPath(file.path, link.href, allPaths) === currentPath) {
+          return true;
+        }
       }
       return false;
     });
     if (matched) {
-      incoming.push({ path: file.path, label: labelOf(file.path), refType: 'incoming' });
+      incoming.push({
+        path: file.path,
+        label: labelOf(file.path),
+        refType: 'incoming',
+      });
     }
   }
+
   // incoming 按 label 排序
   incoming.sort((a, b) => a.label.localeCompare(b.label));
 

@@ -1,11 +1,20 @@
 // File System Access API 封装
 import type { FileEntry } from '@/types/document';
 
+/**
+ * 跳过以 "." 开头的隐藏目录/文件（.git / .next / .idea / .DS_Store 等）。
+ * 这些通常是工具链产物，不属于用户内容；放进文件树会刷屏、放进索引也会拖慢搜索。
+ */
+function isHidden(name: string): boolean {
+  return name.startsWith('.');
+}
+
 export async function readDirectoryEntries(
   handle: FileSystemDirectoryHandle,
 ): Promise<FileEntry[]> {
   const entries: FileEntry[] = [];
   for await (const [name, child] of handle.entries()) {
+    if (isHidden(name)) continue;
     if (child.kind === 'directory') {
       entries.push({
         kind: 'dir',
@@ -96,6 +105,7 @@ export async function scanMdFilesRecursively(
 ): Promise<MdFileRef[]> {
   const files: MdFileRef[] = [];
   for await (const [name, child] of dirHandle.entries()) {
+    if (isHidden(name)) continue;
     const childPath = currentPath ? `${currentPath}/${name}` : name;
     if (child.kind === 'file') {
       if (name.endsWith('.md')) {
