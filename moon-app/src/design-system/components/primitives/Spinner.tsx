@@ -1,16 +1,25 @@
 'use client';
 
 /**
- * Spinner — 加载指示。
- * 极简：CSS-only 转圈，无依赖。
+ * Spinner — 加载指示（完全重构为 Tailwind CSS）。
  */
-
-import './Spinner.css';
 
 export interface SpinnerProps {
   size?: 'xs' | 'sm' | 'md';
 }
 
 export function Spinner({ size = 'md' }: SpinnerProps) {
-  return <span className="moon-spinner" data-size={size} role="status" aria-label="loading" />;
+  const sizeClasses = {
+    xs: 'w-3 h-3 border',
+    sm: 'w-4 h-4 border-2',
+    md: 'w-6 h-6 border-2',
+  }[size];
+
+  return (
+    <span
+      className={`inline-block rounded-full border-t-transparent animate-spin border-current ${sizeClasses}`}
+      role="status"
+      aria-label="loading"
+    />
+  );
 }

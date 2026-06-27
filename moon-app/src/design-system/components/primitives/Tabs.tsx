@@ -1,14 +1,10 @@
 'use client';
 
 /**
- * Tabs — 图标 + 内容切换。
- * 用法：右栏顶部 3 tab 切换（属性 / 目录 / 关联）。
- *
- * 父组件控制激活状态，本组件只渲染触发器和 panel 容器。
+ * Tabs — 图标切换（完全重构为 Tailwind CSS，高度增加，仅显示 3 个图标不需要文字）。
  */
 
 import { type ReactNode } from 'react';
-import './Tabs.css';
 
 export interface TabItem {
   id: string;
@@ -24,20 +20,28 @@ export interface TabsProps {
 
 export function Tabs({ items, activeId, onChange }: TabsProps) {
   return (
-    <div className="moon-tabs" role="tablist">
-      {items.map((item) => (
-        <button
-          key={item.id}
-          role="tab"
-          aria-selected={item.id === activeId}
-          data-active={item.id === activeId || undefined}
-          className="moon-tab-trigger"
-          onClick={() => onChange(item.id)}
-          title={item.label}
-        >
-          <span className="moon-tab-icon">{item.icon}</span>
-        </button>
-      ))}
+    <div className="flex items-center gap-1 w-full justify-around" role="tablist">
+      {items.map((item) => {
+        const isActive = item.id === activeId;
+        const activeClasses = isActive
+          ? 'border-accent text-accent font-semibold bg-accentMuted/30'
+          : 'border-transparent text-fgSecondary hover:text-fg hover:bg-sidebarHoverBg/40';
+
+        return (
+          <button
+            key={item.id}
+            role="tab"
+            aria-selected={isActive}
+            onClick={() => onChange(item.id)}
+            title={item.label}
+            className={`flex-1 flex items-center justify-center py-2.5 rounded-md border-b-2 transition-all duration-120 cursor-pointer focus:outline-none ${activeClasses}`}
+          >
+            <span className="flex items-center justify-center">
+              {item.icon}
+            </span>
+          </button>
+        );
+      })}
     </div>
   );
 }
