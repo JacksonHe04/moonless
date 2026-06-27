@@ -1,9 +1,14 @@
 'use client';
 
+/**
+ * TreeNode — 文件树节点（完全重构为 Tailwind CSS，并统一使用 Lucide 图标）。
+ */
+
 import { useCallback, useState } from 'react';
 import { readDirectoryEntries } from '@/lib/fs-access';
 import type { FileEntry } from '@/types/document';
 import { ContextMenu, PromptDialog, ConfirmDialog } from './ContextMenu';
+import { Folder, FolderOpen, FileText } from 'lucide-react';
 
 type TreeNodeProps = {
   entry: FileEntry;
@@ -19,7 +24,7 @@ type TreeNodeProps = {
 
 export function TreeNode(props: TreeNodeProps) {
   const { entry, parentPath, parentHandle, onPickFile, onRename, onDelete, onCreateFile, onCreateDir, activePath } = props;
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(false);
   const [kids, setKids] = useState<FileEntry[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
@@ -32,7 +37,7 @@ export function TreeNode(props: TreeNodeProps) {
 
   const toggle = useCallback(async () => {
     if (entry.kind !== 'dir') return;
-    if (kids === null) {
+    if (!open && kids === null) {
       setLoading(true);
       try {
         const k = await readDirectoryEntries(entry.handle as FileSystemDirectoryHandle);
@@ -44,7 +49,15 @@ export function TreeNode(props: TreeNodeProps) {
     } else {
       setOpen(!open);
     }
-  }, [entry.handle, entry.kind, kids, open]);
+
+    try {
+      const dirHandle = entry.handle as FileSystemDirectoryHandle;
+      const indexHandle = await dirHandle.getFileHandle('index.md');
+      onPickFile(indexHandle, `${path}/index.md`);
+    } catch (err) {
+      // index.md doesn't exist
+    }
+  }, [entry.handle, entry.kind, kids, open, onPickFile, path]);
 
   const onContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -54,12 +67,19 @@ export function TreeNode(props: TreeNodeProps) {
   if (entry.kind === 'dir') {
     const dirHandle = entry.handle as FileSystemDirectoryHandle;
     return (
-      <li className="dir">
-        <div className="label" onClick={toggle} onContextMenu={onContextMenu}>
-          {open ? '📂' : '📁'} {entry.name}
+      <li className="list-none">
+        <div
+          className="flex items-center gap-2 py-1 px-2.5 cursor-pointer rounded transition-colors duration-120 text-[13px] font-sans text-fg hover:bg-sidebarHoverBg font-medium select-none"
+          onClick={toggle}
+          onContextMenu={onContextMenu}
+        >
+          <span className="flex-shrink-0 text-accent/80">
+            {open ? <FolderOpen size={15} /> : <Folder size={15} />}
+          </span>
+          <span className="truncate">{entry.name}</span>
         </div>
         {open && kids && (
-          <ul>
+          <ul className="pl-3.5 list-none border-l border-borderSubtle/60 ml-4 mb-0.5 space-y-0.5">
             {kids.map((k) => (
               <TreeNode
                 key={k.name}
@@ -76,7 +96,7 @@ export function TreeNode(props: TreeNodeProps) {
             ))}
           </ul>
         )}
-        {loading && <div className="hint">加载中…</div>}
+        {loading && <div className="text-[11px] text-fgMuted pl-6 font-sans">加载中…</div>}
         {menu && (
           <ContextMenu
             x={menu.x} y={menu.y}
@@ -125,14 +145,21 @@ export function TreeNode(props: TreeNodeProps) {
 
   const isActive = activePath === path;
   return (
-    <li className="file">
+    <li className="list-none">
       <div
-        className={isActive ? 'file active' : 'file'}
+        className={`flex items-center gap-2 py-1 px-2.5 cursor-pointer rounded transition-colors duration-120 text-[13px] font-sans select-none ${
+          isActive
+            ? 'bg-accentMuted text-accent font-medium'
+            : 'text-fg hover:bg-sidebarHoverBg'
+        }`}
         onClick={() => onPickFile(entry.handle as FileSystemFileHandle, path)}
         onContextMenu={onContextMenu}
         title={path}
       >
-        📄 {entry.name}
+        <span className="flex-shrink-0 text-fgMuted">
+          <FileText size={15} className={isActive ? 'text-accent' : 'text-fgMuted'} />
+        </span>
+        <span className="truncate">{entry.name}</span>
       </div>
       {menu && (
         <ContextMenu

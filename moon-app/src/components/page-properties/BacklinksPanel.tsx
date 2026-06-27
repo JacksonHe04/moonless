@@ -1,7 +1,12 @@
 'use client';
 
+/**
+ * BacklinksPanel — 反向链接面板（完全重构为 Tailwind CSS，并使用 Lucide 图标）。
+ */
+
 import { useEffect, useState } from 'react';
 import { extractMdLinks } from '@/lib/double-link';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 
 type BacklinksPanelProps = {
   currentPath: string;
@@ -32,20 +37,32 @@ export function BacklinksPanel({ currentPath, currentNotionId, allFiles, onPickF
   }, [currentPath, currentNotionId, allFiles]);
 
   return (
-    <div className="backlinks-panel">
-      <div className="backlinks-header" onClick={() => setOpen(!open)}>
-        <span>{open ? '▼' : '▶'}</span>
+    <div className="flex flex-col border border-borderSubtle bg-sidebarBg/30 p-2.5 rounded hover:border-accent/40 transition-colors">
+      <div
+        className="flex items-center gap-1.5 cursor-pointer text-xs font-semibold text-fg select-none"
+        onClick={() => setOpen(!open)}
+      >
+        <span className="text-fgMuted">
+          {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+        </span>
         <span>反向链接 ({backlinks.length})</span>
       </div>
       {open && (
-        <ul className="backlinks-list">
+        <ul className="flex flex-col gap-1 mt-2 pl-3 border-l border-borderSubtle/60 list-none">
           {backlinks.length === 0 ? (
-            <li className="empty">暂无反向链接</li>
-          ) : backlinks.map((b, i) => (
-            <li key={i} onClick={() => onPickFile(b.path)}>
-              {b.path}
-            </li>
-          ))}
+            <li className="text-[11px] text-fgMuted font-sans italic p-1">暂无反向链接</li>
+          ) : (
+            backlinks.map((b, i) => (
+              <li
+                key={i}
+                onClick={() => onPickFile(b.path)}
+                className="text-[11px] font-sans text-fgSecondary hover:text-accent hover:underline cursor-pointer py-0.5 truncate"
+                title={b.path}
+              >
+                {b.path}
+              </li>
+            ))
+          )}
         </ul>
       )}
     </div>

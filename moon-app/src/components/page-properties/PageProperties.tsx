@@ -1,9 +1,12 @@
 'use client';
 
+/**
+ * PageProperties — 页面属性面板（完全重构为 Tailwind CSS，消除 CSS 依赖）。
+ */
+
 import { useState, useEffect } from 'react';
 import { FieldCard } from './FieldCard';
-import { BacklinksPanel } from './BacklinksPanel';
-import { splitYAML, joinYAML } from '@/lib/frontmatter';
+import { splitYAML } from '@/lib/frontmatter';
 import type { Frontmatter } from '@/types/document';
 
 type FieldDef = { type: 'string' | 'text' | 'datetime' | 'list' | 'select' | 'link' | 'readonly'; required?: boolean; options?: string[] };
@@ -74,15 +77,20 @@ export function PageProperties({ fileHandle, currentPath, allFileTexts, onFrontm
   };
 
   return (
-    <aside className="page-properties">
-      <h3>页面属性</h3>
+    <div className="flex flex-col gap-4 font-sans text-fg w-full">
+      <h3 className="text-sm font-bold text-fg border-b border-borderSubtle/60 pb-1.5">页面属性</h3>
       {!hasFrontmatter ? (
-        <div className="empty">
-          <p>此文件无 frontmatter</p>
-          <button onClick={addFrontmatter}>添加 frontmatter</button>
+        <div className="flex flex-col items-center gap-3 p-6 border border-dashed border-borderSubtle rounded-lg text-center bg-sidebarBg/10">
+          <p className="text-xs text-fgMuted">此文件无 frontmatter</p>
+          <button
+            onClick={addFrontmatter}
+            className="px-3 py-1.5 bg-accent text-white rounded text-xs font-semibold hover:bg-accentHover transition-colors focus:outline-none"
+          >
+            添加 frontmatter
+          </button>
         </div>
       ) : (
-        <>
+        <div className="flex flex-col gap-3.5">
           {Object.entries(FIELD_DEFS).map(([name, def]) => (
             <FieldCard
               key={name}
@@ -104,15 +112,8 @@ export function PageProperties({ fileHandle, currentPath, allFileTexts, onFrontm
               onChange={(v) => updateField(name, v)}
             />
           ))}
-          <BacklinksPanel
-            currentPath={currentPath}
-            currentNotionId={String(frontmatter.notion_id ?? '')}
-            allFiles={allFileTexts}
-            onPickFile={(p) => console.log('backlink click:', p)}
-          />
-        </>
+        </div>
       )}
-    </aside>
+    </div>
   );
 }
-

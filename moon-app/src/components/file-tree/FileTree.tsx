@@ -1,5 +1,9 @@
 'use client';
 
+/**
+ * FileTree — 文件树（完全重构为 Tailwind CSS，增加边距改善体验）。
+ */
+
 import { TreeNode } from './TreeNode';
 import type { FileEntry } from '@/types/document';
 
@@ -18,14 +22,14 @@ type FileTreeProps = {
 export function FileTree(props: FileTreeProps) {
   const { topEntries, rootHandle, currentFilePath, onPickFile, onRename, onDelete, onCreateFile, onCreateDir, emptyMessage } = props;
   if (topEntries === null) {
-    return <p className="empty">{emptyMessage ?? '尚未选择目录'}</p>;
+    return <p className="text-xs text-fgMuted p-6 text-center font-sans">{emptyMessage ?? '尚未选择目录'}</p>;
   }
   if (topEntries.length === 0) {
-    return <p className="empty">目录为空(没有 .md 文件)</p>;
+    return <p className="text-xs text-fgMuted p-6 text-center font-sans">目录为空 (没有 .md 文件)</p>;
   }
   if (!rootHandle) return null;
   return (
-    <ul>
+    <ul className="pl-4 pr-3 py-2.5 space-y-0.5 list-none">
       {topEntries.map((e) => (
         <TreeNode
           key={e.name}

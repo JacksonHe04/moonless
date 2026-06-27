@@ -1,5 +1,9 @@
 'use client';
 
+/**
+ * FieldCard — 页面属性单项卡片（完全重构为 Tailwind CSS，消除 CSS 依赖）。
+ */
+
 import { useState } from 'react';
 
 type FieldType = 'string' | 'text' | 'datetime' | 'list' | 'select' | 'link' | 'readonly';
@@ -27,16 +31,26 @@ export function FieldCard({ name, type, value, required, options, onChange, erro
     }
   };
 
+  const cardBorder = error
+    ? 'border-danger/40 bg-danger/5'
+    : 'border-borderSubtle bg-sidebarBg/30 hover:border-accent/40';
+
   return (
-    <div className={`field-card ${error ? 'has-error' : ''}`}>
-      <div className="field-header">
-        <span className="field-name">{name}{required && <span className="required">*</span>}</span>
-        <span className="field-type">{type}</span>
+    <div className={`flex flex-col gap-1 border p-2.5 rounded transition-colors ${cardBorder}`}>
+      <div className="flex items-center justify-between text-[11px] font-sans text-fgMuted">
+        <span className="font-semibold truncate">
+          {name}
+          {required && <span className="text-danger ml-0.5">*</span>}
+        </span>
+        <span className="text-[9px] uppercase font-bold tracking-wider opacity-60">{type}</span>
       </div>
+
       {type === 'readonly' ? (
-        <div className="field-readonly">{String(value ?? '')}</div>
+        <div className="text-xs text-fgMuted bg-sidebarBg/50 p-1.5 rounded select-all font-mono truncate">
+          {String(value ?? '')}
+        </div>
       ) : editing ? (
-        <div className="field-edit">
+        <div className="flex flex-col gap-1">
           {type === 'text' ? (
             <textarea
               value={draft}
@@ -45,6 +59,7 @@ export function FieldCard({ name, type, value, required, options, onChange, erro
               onKeyDown={(e) => { if (e.key === 'Escape') setEditing(false); }}
               autoFocus
               rows={3}
+              className="w-full text-xs font-sans border border-borderSubtle rounded px-2 py-1.5 focus:outline-none focus:border-accent bg-appBg text-fg resize-y"
             />
           ) : type === 'list' ? (
             <input
@@ -55,6 +70,7 @@ export function FieldCard({ name, type, value, required, options, onChange, erro
               onKeyDown={(e) => { if (e.key === 'Escape') setEditing(false); }}
               placeholder="逗号分隔,如: a, b, c"
               autoFocus
+              className="w-full text-xs font-sans border border-borderSubtle rounded px-2 py-1.5 focus:outline-none focus:border-accent bg-appBg text-fg"
             />
           ) : type === 'select' ? (
             <select
@@ -63,6 +79,7 @@ export function FieldCard({ name, type, value, required, options, onChange, erro
               onBlur={commit}
               onKeyDown={(e) => { if (e.key === 'Escape') setEditing(false); }}
               autoFocus
+              className="w-full text-xs font-sans border border-borderSubtle rounded px-2 py-1.5 focus:outline-none focus:border-accent bg-appBg text-fg"
             >
               {options?.map((o) => <option key={o} value={o}>{o}</option>)}
             </select>
@@ -74,6 +91,7 @@ export function FieldCard({ name, type, value, required, options, onChange, erro
               onBlur={commit}
               onKeyDown={(e) => { if (e.key === 'Escape') setEditing(false); }}
               autoFocus
+              className="w-full text-xs font-sans border border-borderSubtle rounded px-2 py-1.5 focus:outline-none focus:border-accent bg-appBg text-fg"
             />
           ) : type === 'link' ? (
             <input
@@ -84,6 +102,7 @@ export function FieldCard({ name, type, value, required, options, onChange, erro
               onKeyDown={(e) => { if (e.key === 'Escape') setEditing(false); }}
               placeholder="https://..."
               autoFocus
+              className="w-full text-xs font-sans border border-borderSubtle rounded px-2 py-1.5 focus:outline-none focus:border-accent bg-appBg text-fg"
             />
           ) : (
             <input
@@ -93,17 +112,18 @@ export function FieldCard({ name, type, value, required, options, onChange, erro
               onBlur={commit}
               onKeyDown={(e) => { if (e.key === 'Escape') setEditing(false); }}
               autoFocus
+              className="w-full text-xs font-sans border border-borderSubtle rounded px-2 py-1.5 focus:outline-none focus:border-accent bg-appBg text-fg"
             />
           )}
-          {error && <div className="field-error">{error}</div>}
+          {error && <div className="text-[10px] text-danger mt-1 font-semibold">{error}</div>}
         </div>
       ) : (
         <div
-          className="field-display"
           onClick={() => { setDraft(serializeValue(value)); setEditing(true); }}
+          className="text-xs py-1.5 px-2 rounded hover:bg-sidebarHoverBg/40 cursor-pointer min-h-[28px] flex items-center font-medium font-sans truncate text-fg"
         >
           {value === undefined || value === null || value === '' ? (
-            <span className="empty">空</span>
+            <span className="text-fgMuted italic font-normal">空</span>
           ) : (
             <span>{displayValue(value, type)}</span>
           )}
