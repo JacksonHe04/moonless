@@ -1,4 +1,4 @@
-<h1 align="center">MOON ESCAPE</h1>
+<h1 align="center">MOONLESS</h1>
 
 <p align="center">
   <img src="https://img.shields.io/badge/Google-OKF_v0.1-4285F4?logo=google&logoColor=white" alt="Google OKF" />
@@ -44,7 +44,7 @@ Only to find out: **it's easy to go up, but hard to come down.**
 
 ***
 
-**MOON ESCAPE** is a door opened from the Moon—but coming home is not a single step.
+**MOONLESS** is a door opened from the Moon—but coming home is not a single step.
 
 It is composed of **three core modules** stitched into a single path back to yourself:
 
@@ -366,8 +366,8 @@ The project uses **pnpm workspaces** to manage the monorepo:
 
 <br />
 
-*We chose to go to the Moon.*\
-*Now we choose to leave.*\
-*Not with fanfare. Just quietly,*\
-*with our notes tucked under one arm,*\
+*We chose to go to the Moon.*
+*Now we choose to leave.*
+*Not with fanfare. Just quietly,*
+*with our notes tucked under one arm,*
 *walking back down.*
