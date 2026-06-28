@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import Link from 'next/link';
-import { Search, Heart, ShoppingCart, User, ChevronDown, Check } from 'lucide-react';
+import { Search, ChevronDown, Check } from 'lucide-react';
 import { useI18n, type Locale } from '@/lib/i18n';
 
 interface LandingHeaderProps {
@@ -13,131 +13,124 @@ export function LandingHeader({ onScrollToNewspaper }: LandingHeaderProps) {
   const { locale, setLocale, t } = useI18n();
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
+  const navItems = useMemo(
+    () => [
+      { key: 'aboutUs', index: '01' },
+      { key: 'technology', index: '02' },
+      { key: 'service', index: '03' },
+      { key: 'blog', index: '04' },
+      { key: 'contacts', index: '05' },
+    ] as const,
+    [],
+  );
+
   const toggleLanguage = (lang: Locale) => {
     setLocale(lang);
     setDropdownOpen(false);
   };
 
   return (
-    <header className="sticky top-0 w-full h-[72px] bg-paperCream border-b border-paperGray flex items-center justify-between z-50 select-none font-oswald text-paperDark">
-      {/* LEFT: EN/ZH Dropdown + Search Box */}
-      <div className="flex items-center h-full">
-        {/* Language Selector */}
-        <div className="relative h-full">
-          <button 
-            onClick={() => setDropdownOpen(!dropdownOpen)}
-            className="flex items-center gap-1.5 px-6 border-r border-paperGray h-full cursor-pointer hover:bg-paperGray/20 transition-colors uppercase font-mono text-xs font-semibold"
+    <header className="sticky top-0 z-50 border-b border-paperGray bg-paperCream select-none">
+      <div className="h-[4px] w-full bg-brandRed" />
+
+      {/* Top bar: language + search + nav + products */}
+      <div className="flex h-[56px] items-center border-b border-paperGray">
+        {/* Language selector */}
+        <div className="relative flex-shrink-0 border-r border-paperGray">
+          <button
+            onClick={() => setDropdownOpen((open) => !open)}
+            className="flex h-full w-[72px] items-center justify-center gap-2 font-mono text-[12px] font-medium uppercase tracking-[0.08em] text-paperDark transition-colors hover:bg-paperGray/15"
           >
-            <span>{locale === 'zh' ? '中文' : 'EN'}</span>
-            <ChevronDown size={14} className="text-paperDark/60" />
+            <span>{locale === 'zh' ? 'ZH' : 'EN'}</span>
+            <ChevronDown size={14} className="text-paperDark/70" />
           </button>
 
-          {/* Dropdown Menu */}
           {dropdownOpen && (
-            <div className="absolute top-[72px] left-0 w-[120px] bg-paperWhite border-r border-b border-paperGray shadow-md flex flex-col z-50 font-mono text-xs">
-              <button 
+            <div className="absolute left-0 top-full z-50 w-[100px] border-b border-r border-l border-paperGray bg-paperWhite shadow-lg">
+              <button
                 onClick={() => toggleLanguage('zh')}
-                className="w-full px-4 py-3 flex items-center justify-between hover:bg-paperCream transition-colors border-b border-paperGray/40 text-left font-semibold"
+                className="flex w-full items-center justify-between px-4 py-2.5 text-left font-mono text-[11px] font-semibold uppercase tracking-[0.08em] transition-colors hover:bg-paperCream"
               >
                 <span>中文</span>
                 {locale === 'zh' && <Check size={12} className="text-brandRed" />}
               </button>
-              <button 
+              <button
                 onClick={() => toggleLanguage('en')}
-                className="w-full px-4 py-3 flex items-center justify-between hover:bg-paperCream transition-colors text-left font-semibold"
+                className="flex w-full items-center justify-between px-4 py-2.5 text-left font-mono text-[11px] font-semibold uppercase tracking-[0.08em] transition-colors hover:bg-paperCream"
               >
-                <span>ENGLISH</span>
+                <span>EN</span>
                 {locale === 'en' && <Check size={12} className="text-brandRed" />}
               </button>
             </div>
           )}
         </div>
-        
-        {/* Search Bar */}
-        <div className="flex items-center gap-3 px-6 h-full border-r border-paperGray relative group min-w-[200px] md:min-w-[240px]">
-          <Search size={15} className="text-paperDark/50 group-focus-within:text-brandRed transition-colors" />
-          <input 
-            type="text" 
-            placeholder="SEARCH MOONLESS..." 
-            className="w-full bg-transparent border-none outline-none text-xs font-mono tracking-wider placeholder:text-paperDark/30 text-paperDark font-semibold uppercase"
+
+        {/* Search - takes remaining space */}
+        <div className="flex min-w-0 flex-1 items-center gap-3 px-6">
+          <Search size={18} strokeWidth={1.75} className="text-paperDark/45 flex-shrink-0" />
+          <input
+            type="text"
+            placeholder={t('landingSearchPlaceholder')}
+            className="min-w-0 flex-1 bg-transparent font-mono text-[12px] font-medium uppercase tracking-[0.08em] text-paperDark outline-none placeholder:text-paperDark/28"
           />
         </div>
+
+        {/* Desktop: Navigation + Products */}
+        <nav className="hidden xl:flex h-full flex-shrink-0 border-l border-paperGray">
+          <ul className="flex h-full divide-x divide-paperGray">
+            {navItems.map((item) => (
+              <li key={item.key}>
+                <button
+                  onClick={onScrollToNewspaper}
+                  className="flex h-full flex-col items-center justify-center px-4 py-2 text-left transition-colors hover:bg-paperGray/12"
+                >
+                  <span className="font-mono text-[11px] leading-none tracking-[0.08em] text-paperDark">
+                    {item.index}
+                  </span>
+                  <span className="mt-1 font-mono text-[10px] leading-[1.05] tracking-[0.05em] text-paperDark uppercase">
+                    {t(item.key)}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+          <Link
+            href="/home"
+            className="flex items-center justify-center bg-brandRed px-6 font-mono text-[12px] font-semibold uppercase tracking-[0.09em] text-paperCream transition-colors hover:bg-[#b13e35]"
+          >
+            {t('products')}
+          </Link>
+        </nav>
       </div>
 
-      {/* MIDDLE: Navigation Menu (01-05) */}
-      <nav className="hidden lg:flex items-center h-full flex-1 justify-center">
-        <ul className="flex items-center h-full text-xs tracking-widest font-semibold gap-0">
-          <li className="h-full">
-            <button 
-              onClick={onScrollToNewspaper}
-              className="flex items-center gap-1.5 px-6 h-full hover:text-brandRed hover:bg-paperGray/10 transition-all cursor-pointer uppercase"
+      {/* Mobile: Navigation below search */}
+      <nav className="flex xl:hidden overflow-x-auto border-t border-paperGray bg-paperCream">
+        <ul className="flex min-w-max divide-x divide-paperGray">
+          {navItems.map((item) => (
+            <li key={item.key}>
+              <button
+                onClick={onScrollToNewspaper}
+                className="flex h-[48px] flex-col items-center justify-center px-4 py-1.5 text-left transition-colors hover:bg-paperGray/12"
+              >
+                <span className="font-mono text-[10px] leading-none tracking-[0.08em] text-paperDark">
+                  {item.index}
+                </span>
+                <span className="mt-0.5 font-mono text-[9px] leading-[1.05] tracking-[0.05em] text-paperDark uppercase">
+                  {t(item.key)}
+                </span>
+              </button>
+            </li>
+          ))}
+          <li>
+            <Link
+              href="/home"
+              className="flex h-[48px] items-center justify-center bg-brandRed px-4 font-mono text-[10px] font-semibold uppercase tracking-[0.08em] text-paperCream"
             >
-              <span className="text-[10px] text-brandRed font-mono font-medium">01</span>
-              <span>{t('aboutUs')}</span>
-            </button>
-          </li>
-          <li className="h-full">
-            <button 
-              onClick={onScrollToNewspaper}
-              className="flex items-center gap-1.5 px-6 h-full hover:text-brandRed hover:bg-paperGray/10 transition-all cursor-pointer uppercase"
-            >
-              <span className="text-[10px] text-brandRed font-mono font-medium">02</span>
-              <span>{t('technology')}</span>
-            </button>
-          </li>
-          <li className="h-full">
-            <button 
-              onClick={onScrollToNewspaper}
-              className="flex items-center gap-1.5 px-6 h-full hover:text-brandRed hover:bg-paperGray/10 transition-all cursor-pointer uppercase"
-            >
-              <span className="text-[10px] text-brandRed font-mono font-medium">03</span>
-              <span>{t('service')}</span>
-            </button>
-          </li>
-          <li className="h-full">
-            <button 
-              onClick={onScrollToNewspaper}
-              className="flex items-center gap-1.5 px-6 h-full hover:text-brandRed hover:bg-paperGray/10 transition-all cursor-pointer uppercase"
-            >
-              <span className="text-[10px] text-brandRed font-mono font-medium">04</span>
-              <span>{t('blog')}</span>
-            </button>
-          </li>
-          <li className="h-full">
-            <button 
-              onClick={onScrollToNewspaper}
-              className="flex items-center gap-1.5 px-6 h-full hover:text-brandRed hover:bg-paperGray/10 transition-all cursor-pointer uppercase"
-            >
-              <span className="text-[10px] text-brandRed font-mono font-medium">05</span>
-              <span>{t('contacts')}</span>
-            </button>
+              {t('products')}
+            </Link>
           </li>
         </ul>
       </nav>
-
-      {/* RIGHT: Icons + CATALOG (PRODUCTS) Button */}
-      <div className="flex items-center h-full">
-        {/* Icons container */}
-        <div className="flex items-center h-full px-2 md:px-4 border-l border-paperGray gap-1 md:gap-3">
-          <button className="p-3 text-paperDark/70 hover:text-brandRed hover:scale-105 transition-all cursor-pointer" aria-label="Favorites">
-            <Heart size={16} />
-          </button>
-          <button className="p-3 text-paperDark/70 hover:text-brandRed hover:scale-105 transition-all cursor-pointer" aria-label="Shopping Cart">
-            <ShoppingCart size={16} />
-          </button>
-          <button className="p-3 text-paperDark/70 hover:text-brandRed hover:scale-105 transition-all cursor-pointer" aria-label="User Account">
-            <User size={16} />
-          </button>
-        </div>
-        
-        {/* PRODUCTS (originally CATALOG) Button */}
-        <Link 
-          href="/home" 
-          className="h-full flex items-center justify-center bg-brandRed hover:bg-brandRed/90 text-paperCream font-bold tracking-widest text-xs uppercase px-8 md:px-10 transition-all active:brightness-95 border-l border-paperGray cursor-pointer"
-        >
-          {t('products')}
-        </Link>
-      </div>
     </header>
   );
 }
