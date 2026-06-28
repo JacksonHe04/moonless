@@ -6,15 +6,17 @@ export const zh = {
   blog: '官方博客',
   contacts: '联系我们',
   products: '进入系统',
+  landingSearchPlaceholder: '搜索 MOONLESS',
 
   // Hero Section
   sloganLine1: 'nothing',
   sloganLine2: 'is impossible',
-  heroTitle: 'MOONLESS OKF SYSTEM',
+  heroTitle: 'MOONLESS',
+  heroCategory: '去中心化 OKF 知识系统',
   heroIntro: '有人告诉我们要以月球为目标。我们照做了。我们将一切都放到了那里——我们的笔记、我们的思想、我们多年的工作成果——放在别人的服务器上，在别人的客户端里，被别人的付费墙阻挡。现在，服务器变慢了，席位费更贵了。而我们仍然漂浮在空中，不知如何回家。',
 
   // Weather and Meta
-  weatherStatus: '本地存储正常，快速读写，空间无上限。',
+  weatherStatus: '去中心化存储正常，快速读写，空间无上限。',
   editionInfo: '创刊号 · 第一期',
   latestEventBadge: '最新动态',
   epaper: '电子报',
@@ -26,8 +28,8 @@ export const zh = {
   escapeText: 'moon-escape 把你在云端的工作空间流式拉到本地，落成符合 Google OKF (Open Knowledge Format) 规范的 Markdown 格式。通过自适应并发限制与限流重试机制，安全、快速、完整地拉取你的所有文档、数据库以及内容块。Notion 平台已完整实现——支持 2025 多数据源、Block 嵌套页面重组、p-queue 限流以及预算路径解算，确保本地文件的目录父子关系 100% 还原。',
 
   // Join Us Article
-  joinUsTitle: '加入我们，共建本地知识库',
-  joinUsText: '加入我们，建立你的本地私有知识系统，脱离云端绑定，享受纯净、无阻、极速的个人知识管理体验。三个模块共享同一份 OKF 契约，改一处，全局生效。不依赖任何私有云服务，真正拥有你的文字。',
+  joinUsTitle: '加入我们，共建去中心化知识库',
+  joinUsText: '加入我们，建立你的去中心化私有知识系统，脱离云端绑定，享受纯净、无阻、极速的个人知识管理体验。三个模块共享同一份 OKF 契约，改一处，全局生效。不依赖任何私有云服务，真正拥有你的文字。',
 
   // Mini Articles
   escapeReleasedHeader: 'ESCAPE 模块 V0.1 正式发布',
@@ -37,7 +39,7 @@ export const zh = {
 
   editorNeedsHeader: 'MOON 编辑器需要你的文件',
   editorNeedsTitle: 'Tiptap 所见即所得网页应用集成原生文件系统 API',
-  editorNeedsText: 'MOON 编辑器运行于浏览器沙盒中，借由 File System Access API 实现无需服务端的本地目录双向同步。修改直接写盘，并在页面转换或创建时自动解决重名冲突与自增后缀分配。',
+  editorNeedsText: 'MOON 编辑器运行于浏览器沙盒中，借由 File System Access API 实现无需服务端的去中心化目录双向同步。修改直接写盘，并在页面转换或创建时自动解决重名冲突与自增后缀分配。',
 
   // Secondary Newspaper
   home: '首页',
@@ -47,19 +49,19 @@ export const zh = {
   sports: '体育',
   lifestyle: '生活',
   architectureHeader: '技术架构',
-  architectureText: 'MOONLESS 基于 pnpm monorepo 架构。通过 Web App 隔离运行，采用 100% 纯本地计算，绝不上传私钥和个人文档信息。使用 Google OKF 作为数据一致性契约。',
+  architectureText: 'MOONLESS 基于 pnpm monorepo 架构。通过 Web App 隔离运行，采用 100% 去中心化计算，绝不上传私钥和个人文档信息。使用 Google OKF 作为数据一致性契约。',
   thisWeekHeader: '★ 本周要闻',
   dataFlowTitle: '数据流管道',
   dataFlow1: '1. ESCAPE: 从 Notion/飞书等流式拉取并生成 OKF Markdown。',
-  dataFlow2: '2. MOON: 本地所见即所得编辑器，读写同一份本地 Markdown，自动维护父子关系。',
+  dataFlow2: '2. MOON: 去中心化所见即所得编辑器，读写同一份 OKF Markdown，自动维护父子关系。',
   dataFlow3: '3. SHOT: 智能连接引擎，计算 Embedding，暴露 Agent API 供 AI 消费。',
   emagazineHeader: '电子杂志封面展示',
   seeMore: '查看更多 →',
 
   // SHOT Article
   shotRoadmap: 'SHOT 路线图',
-  shotTitle: '大趋势！本地 RAG 知识引擎',
-  shotText: '本地知识不应该只是沉睡的文件。SHOT (Knowledge Engine) 旨在构建面向 Agent 的数据连接管道：支持对本地 Markdown 计算 Embedding 进行语义向量检索，结合 MiniSearch 实现高精准度混合召回；通过链接拓扑扫描解析构建在内存中的关系图谱(Space Graph)；并提供标准的 Agent JSON 接口，使 AI Agent 能够随时以结构化元数据与上下文环检索读取本地知识。',
+  shotTitle: '大趋势！去中心化 RAG 知识引擎',
+  shotText: '去中心化知识不应该只是沉睡的文件。SHOT (Knowledge Engine) 旨在构建面向 Agent 的数据连接管道：支持对 OKF Markdown 计算 Embedding 进行语义向量检索，结合 MiniSearch 实现高精准度混合召回；通过链接拓扑扫描解析构建在内存中的关系图谱(Space Graph)；并提供标准的 Agent JSON 接口，使 AI Agent 能够随时以结构化元数据与上下文环检索读取本地知识。',
 
   // Editor Page (Workspace/Home)
   noFileSelected: '未选择文件',
